@@ -84,7 +84,7 @@ public class IntegracaoTeste
     {
         using var context = CriarBancoTeste();
         var uow = new UnitOfWork(context);
-        var service = new TransacaoService(uow); // Precisei do service por causa do internal set
+        var service = new TransacaoService(uow);
 
         var pessoa = new Pessoa { Nome = "Joao", DataNascimento = DateTime.Today.AddYears(-20) };
         var cat = new Categoria { Descricao = "Geral", Finalidade = Categoria.EFinalidade.Ambas };
@@ -93,7 +93,6 @@ public class IntegracaoTeste
         context.Categorias.Add(cat);
         await context.SaveChangesAsync();
 
-        // Usando o service porque a Transacao.Pessoa é 'internal set' (BUG-004)
         await service.CreateAsync(
             new CreateTransacaoDto
             {
@@ -105,7 +104,6 @@ public class IntegracaoTeste
             }
         );
 
-        // Apagando a pessoa para ver se a transação some junto
         context.Pessoas.Remove(pessoa);
         await context.SaveChangesAsync();
 
@@ -151,14 +149,113 @@ public class IntegracaoTeste
             .Pessoas.Include(x => x.Transacoes)
             .FirstOrDefaultAsync(x => x.Id == p.Id);
 
-        // Verificação para o compilador não reclamar de nulo
         Assert.NotNull(pNoBanco);
 
-        // Vai dar 0 por causa do erro de mapeamento do WithMany
         var saldo =
             pNoBanco.Transacoes.Where(x => x.Tipo == Transacao.ETipo.Receita).Sum(x => x.Valor)
             - pNoBanco.Transacoes.Where(x => x.Tipo == Transacao.ETipo.Despesa).Sum(x => x.Valor);
 
         Assert.Equal(800m, saldo);
+    }
+
+    [Fact]
+    public async Task Deve_Retornar_Erro_Ao_Tentar_Receita_Para_Menor()
+    {
+        using var context = CriarBancoTeste();
+        var uow = new UnitOfWork(context);
+        var service = new TransacaoService(uow);
+
+        var menor = new Pessoa { Nome = "Menor", DataNascimento = DateTime.Now.AddYears(-10) };
+        var categoria = new Categoria
+        {
+            Descricao = "Mesada",
+            Finalidade = Categoria.EFinalidade.Receita,
+        };
+        context.Pessoas.Add(menor);
+        context.Categorias.Add(categoria);
+        await context.SaveChangesAsync();
+
+        var dto = new CreateTransacaoDto
+        {
+            Tipo = Transacao.ETipo.Receita,
+            PessoaId = menor.Id,
+            CategoriaId = categoria.Id,
+            Valor = 100,
+            Descricao = "Erro",
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(dto));
+    }
+
+    [Fact]
+    public async Task Deve_Bloquear_Transacao_Com_Finalidade_Incompativel()
+    {
+        using var context = CriarBancoTeste();
+        var uow = new UnitOfWork(context);
+        var service = new TransacaoService(uow);
+
+        var catDespesa = new Categoria
+        {
+            Descricao = "Aluguel",
+            Finalidade = Categoria.EFinalidade.Despesa,
+        };
+        var p = new Pessoa { Nome = "Adulto", DataNascimento = DateTime.Now.AddYears(-30) };
+        context.Categorias.Add(catDespesa);
+        context.Pessoas.Add(p);
+        await context.SaveChangesAsync();
+
+        var dto = new CreateTransacaoDto
+        {
+            Tipo = Transacao.ETipo.Receita,
+            PessoaId = p.Id,
+            CategoriaId = catDespesa.Id,
+            Valor = 500,
+            Descricao = "Incompatível",
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(dto));
+    }
+
+    [Fact]
+    public async Task Deve_Excluir_Transacoes_Em_Cascata_Ao_Deletar_Pessoa()
+    {
+        using var context = CriarBancoTeste();
+        var uow = new UnitOfWork(context);
+        var service = new TransacaoService(uow);
+
+        var pessoa = new Pessoa { Nome = "Deletável", DataNascimento = DateTime.Now.AddYears(-20) };
+        var cat = new Categoria { Descricao = "Geral", Finalidade = Categoria.EFinalidade.Ambas };
+        context.Pessoas.Add(pessoa);
+        context.Categorias.Add(cat);
+        await context.SaveChangesAsync();
+
+        await service.CreateAsync(
+            new CreateTransacaoDto
+            {
+                Descricao = "T1",
+                Valor = 10,
+                Tipo = Transacao.ETipo.Despesa,
+                PessoaId = pessoa.Id,
+                CategoriaId = cat.Id,
+            }
+        );
+        await service.CreateAsync(
+            new CreateTransacaoDto
+            {
+                Descricao = "T2",
+                Valor = 10,
+                Tipo = Transacao.ETipo.Despesa,
+                PessoaId = pessoa.Id,
+                CategoriaId = cat.Id,
+            }
+        );
+
+        context.Pessoas.Remove(pessoa);
+        await context.SaveChangesAsync();
+
+        var transacoesRestantes = await context
+            .Transacoes.Where(t => t.PessoaId == pessoa.Id)
+            .CountAsync();
+        Assert.Equal(0, transacoesRestantes);
     }
 }
