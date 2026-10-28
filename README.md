@@ -1,65 +1,120 @@
-# Relatório de Testes
-**Tester Responsável:** Rodrigo Correa \
-**Data:** 16 de Março de 2026 
+# 🧪 Relatório de Testes
 
-Este repositório contém os arquivos de testes e o registro de bugs encontrados no código-fonte **MP**. Cada teste está separado em sua devida pasta com seus devidos programas.
+**👤 Responsável:** Rodrigo Correa
+**📅 Data:** 16 de março de 2026
+
+## 📖 Sobre o Projeto
+
+Este repositório reúne os **testes automatizados** e o **registro de bugs** do desafio técnico de QA, aplicado a um sistema financeiro com **API em .NET** e **front-end em Vite**.
+
+A estratégia seguiu a **pirâmide de testes** (unitários, integração e E2E), e cada camada tem a sua própria pasta, com seus programas.
+
+### ✨ O que você encontra aqui
+
+- 🔬 **Testes unitários:** métodos isolados, como cálculo de saldo, sanitização de texto e limites de tipos numéricos.
+- 🔗 **Testes de integração:** relacionamento entre entidades, mapeamento do ORM e regras de negócio na API.
+- 🖥️ **Testes E2E:** simulação do usuário na interface com Playwright, com análise do tráfego de rede.
+- 🐞 **Registro de bugs:** 10 bugs e 2 alertas, classificados por prioridade, em [BUGS.md](BUGS.md).
 
 ---
 
-## 1. Como executar os testes
+## 🗂️ Estrutura do Repositório
 
-Para reproduzir os resultados da auditoria, siga as instruções abaixo:
+| Pasta / Arquivo | Conteúdo |
+|---|---|
+| `TesteUnitario/` | Testes unitários (.NET) |
+| `TesteIntegracao/` | Testes de integração (.NET) |
+| `TesteE2E/` | Testes de ponta a ponta (Playwright) |
+| `BUGS.md` | Lista completa de bugs e alertas |
 
-### **A. Testes Unitários e de Integração**
-Em suas devidas pastas (TesteIntegracao e TesteUnitario), execute:
-```powershell
+---
+
+## 🚀 Como executar os testes
+
+### 🔬 A. Testes unitários e de integração
+
+Dentro de cada pasta (`TesteUnitario` e `TesteIntegracao`), execute:
+
+```bash
 dotnet test
 ```
 
-Alguns dos testes tiveram que ser feitos utilizando o Swagger, um manual interativo da API, que nos permite testar as chamadas diretamente pelo navegador.
-```powershell
-  dotnet run --urls "http://localhost:5135
-```
-**Importante**: Certifique-se de que a API está rodando em **localhost:5135** e o Vite em **localhost:5000**.
+Alguns cenários foram verificados manualmente pelo **Swagger**, a documentação interativa da API, que permite fazer as chamadas direto pelo navegador. Para isso, suba a API com:
 
-### **B. Testes E2E**
-> **Nota do relator:** Os testes de interface apresentarão falhas sistemáticas de rede (Erro 404). Durante a perícia, identificou-se que o código-fonte do Frontend utiliza a versão de rota `api/v1.0/`, enquanto o Backend responde exclusivamente por `api/v1/`. Além disso, há um conflito de portas (Host `:5000` vs Backend `:5135`).
-```powershell
-cd QA/TesteE2E
+```bash
+dotnet run --urls "http://localhost:5135"
+```
+
+> ⚠️ **Importante:** a API deve estar em `localhost:5135` e o front-end (Vite) em `localhost:5000`.
+
+### 🖥️ B. Testes E2E
+
+```bash
+cd TesteE2E
 bunx playwright test
 ```
-Para visualizar o laudo visual (vídeos e traces):
-```powershell
+
+Para abrir o relatório visual (vídeos e traces):
+
+```bash
 bunx playwright show-report
 ```
 
----
-
-## 2. Estrutura da Pirâmide de Testes
-
-A estratégia seguiu a pirâmide de testes para garantir a máxima cobertura com o menor custo de manutenção:
-
-**Unitários** (Base): Testes focados em métodos isolados, como cálculos de saldo, sanitização de strings e limites de tipos numéricos (ex: prevenção de overflow de double.MaxValue para decimal).  
-
-**Integração** (Meio): São testadas as integrações entre os componentes do sistema, sendo estes componentes classes, funções ou trechos de código. Ex: Foco em garantir que o relacionamento WithMany esteja configurado, evitando shadow properties e carregamento nulo de entidades.  
-
-**E2E** (Topo): Testes de ponta a ponta simulando o usuário. Foco em realizar testes do funcionamento de determinada parte do software. Ex: Validar se as rotas de API e as regras de segurança (como o bloqueio de menores) estão operantes na interface.  
+> 📝 **Nota:** os testes de interface falham por um problema de configuração do sistema, e não por falha nos testes. O front-end chama `api/v1.0/`, mas a API responde apenas em `api/v1/`, o que gera erro **404**. Há ainda um conflito de portas (front-end em `:5000` e API em `:5135`). Detalhes em **BUG-007** e **BUG-008**.
 
 ---
 
-## 3. Justificativa das Escolhas de Testes e Bugs encontrados
+## 🔺 Pirâmide de Testes
 
-Devido à **falha crítica de comunicação entre as camadas**, o CRUD via interface foi invalidado e não foi possível avaliar diversos dos pontos marcados no escopo. Usando os testes de integração e o Swagger, foi possível fazer algumas análises, como por exemplo: 
-<ul>
-<li>Falha de Mapeamento: O teste TesteSomaTotal apresentou erro crítico. Esperado: 800,00 | Obtido: 0,00. Isso prova que o relacionamento entre Pessoa e Transação está quebrado no código, impedindo o cálculo de saldos.</li>
-<li>Robustez de Regras: Via Swagger e Integração, confirmou-se que a regra de "Menor de Idade" está ativa, porém causa um erro 500 (crash) por falta de tratamento de exceção.</li>
-<li>Prioridade em Tipagem e Limites: Em sistemas financeiros, a precisão numérica é crítica. Justificou-se o teste de overflow (double→decimal) para evitar interrupções de serviço em grandes volumes de dados.</li>
+A pirâmide permite boa cobertura com baixo custo de manutenção.
 
-<li>Investigação de ORM: O uso de testes de integração foi escolhido especificamente para diagnosticar falhas silenciosas do Entity Framework, como o mapeamento incompleto de coleções que resultava em saldos zerados.</li>
+| Nível | Foco | Exemplo |
+|---|---|---|
+| 🔬 **Unitário** (base) | Métodos isolados | Cálculo de saldo, sanitização de strings, overflow de `double.MaxValue` para `decimal` |
+| 🔗 **Integração** (meio) | Comunicação entre componentes | Relacionamento `WithMany` configurado, evitando propriedades de sombra e carregamento nulo |
+| 🖥️ **E2E** (topo) | Fluxo completo do usuário | Rotas da API e regras de segurança, como o bloqueio de receita para menores de idade |
 
-<li>E2E com Foco em Rede: Devido à inoperância do sistema via interface, o Playwright foi configurado para monitorar o tráfego de rede (Network logs). Isso permitiu identificar que o erro 404 não era um bug de código, mas uma falha de configuração de rota (v1.0).</li>
+---
 
-<li>Segurança Preventiva: A escolha de testar sanitização de inputs visou cumprir os requisitos de segurança do sistema, prevenindo que caracteres de escape corrompam a base de dados ou facilitem ataques de script.</li>
-</ul>
+## 🎯 Por que escolhi esses testes
 
-Para ver todos bugs encontrados, visitar o [BUGS.md](./BUGS.md)
+- 💰 **Precisão numérica:** em sistemas financeiros, erros de tipo e de limite são críticos. O teste de overflow (`double` para `decimal`) busca evitar interrupções de serviço com grandes volumes de dados.
+- 🕵️ **Falhas silenciosas do ORM:** os testes de integração foram escolhidos para diagnosticar problemas do Entity Framework, como o mapeamento incompleto de coleções, que resultava em saldos zerados.
+- 🛡️ **Segurança preventiva:** testar a sanitização de entradas evita que caracteres especiais corrompam a base de dados ou facilitem ataques de script.
+- 🌐 **E2E com foco em rede:** como a interface estava indisponível, configurei o Playwright para monitorar o tráfego de rede. Isso mostrou que o erro 404 vinha de uma **configuração de rota (v1.0)** e não de um bug de código.
+
+---
+
+## 🐞 Principais achados
+
+| # | Bug | Prioridade |
+|---|---|---|
+| BUG-005 | Relacionamento `Pessoa.Transacoes` mapeado de forma incompleta. O teste `TesteSomaTotal` esperava **800,00** e obteve **0,00**. | 🔴 Alta |
+| BUG-007 | Rota `v1.0` no front-end e `v1` na API, o que gera 404 e **bloqueia** o CRUD pela interface. | 🔴 🚩 Alta e bloqueante |
+| BUG-009 | Regra de "menor de idade não pode ter receita" retorna **HTTP 500** em vez de 400. | ⭕ Média |
+
+Para a lista completa, veja o [BUGS.md](BUGS.md).
+
+### 📊 Resumo por prioridade
+
+| Prioridade | Quantidade |
+|---|---|
+| 🚩 Bloqueante | 1 |
+| 🔴 Alta | 7 (incluindo o bloqueante) |
+| ⭕ Média | 3 |
+| ⚠️ Alertas | 2 |
+
+---
+
+## 🚧 Limitações
+
+Como a comunicação entre front-end e API estava quebrada (**BUG-007**), o CRUD pela interface não pôde ser validado e parte do escopo ficou sem cobertura E2E. Para compensar, usei testes de integração e o Swagger para verificar as regras de negócio diretamente na API.
+
+---
+
+## 🛠️ Tecnologias
+
+- 🟣 **.NET** e **Entity Framework**
+- 🎭 **Playwright**
+- ⚡ **Bun** e **Vite**
+- 📘 **Swagger**
